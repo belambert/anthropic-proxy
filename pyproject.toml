@@ -1,0 +1,20 @@
+[project]
+name = "anthropic-proxy"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Ben Lambert", email = "blambert@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "aiohttp>=3.9.0",
+    "colorama>=0.4.6",
+]
+
+[project.scripts]
+anthropic-proxy = "anthropic_proxy.server:main"
+
+[build-system]
+requires = ["uv_build>=0.9.3,<0.10.0"]
+build-backend = "uv_build"
