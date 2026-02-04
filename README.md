@@ -15,6 +15,7 @@ A simple HTTP proxy server that intercepts and displays all traffic between your
 - Optional display of tools array in JSON bodies (hidden by default to reduce verbosity)
 - Automatic condensing of streaming responses (merges text deltas into a single string)
 - Smart JSON caching to avoid printing repeated structures (enabled by default)
+- Enhanced formatting for multi-line text and content fields with syntax highlighting
 
 ## Installation
 
@@ -163,6 +164,16 @@ The second request with the same tools array would show:
 ```
 
 This works at any level of the JSON hierarchy. Use `--no-cache-json` to disable this feature and see all repeated structures in full.
+
+### Enhanced Text Formatting
+
+The proxy automatically detects `text` and `content` fields in JSON and formats them with enhanced readability:
+
+- **Multi-line strings**: Preserves newlines and indentation with blank lines before/after, making long prompts and responses easier to read
+- **Syntax highlighting**: Uses a lighter cyan color for text content to distinguish it from JSON structure
+- **Automatic formatting**: No configuration needed - works automatically for all text and content fields
+
+When you have multi-line content like prompts or AI responses, they'll be displayed with preserved formatting and highlighted in a lighter color for easy reading.
 
 ### Streaming Responses
 

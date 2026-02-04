@@ -13,6 +13,9 @@ from colorama import Fore, Style, init
 # Initialize colorama for cross-platform color support
 init(autoreset=True)
 
+# Lighter cyan for text content
+TEXT_COLOR = "\033[96m"  # Bright cyan
+
 
 class ProxyServer:
     def __init__(self, target_host: str = "api.anthropic.com", target_scheme: str = "https", show_headers: bool = False, show_event_logging: bool = False, show_tools: bool = False, cache_json: bool = True):
@@ -27,6 +30,55 @@ class ProxyServer:
 
     def print_separator(self, char: str = "=", length: int = 80):
         print(Fore.CYAN + char * length)
+
+    def format_json(self, obj: Any, indent: int = 0, in_text_field: bool = False) -> str:
+        """Custom JSON formatter that handles multi-line strings specially."""
+        indent_str = "  " * indent
+
+        if obj is None:
+            return "null"
+        elif isinstance(obj, bool):
+            return "true" if obj else "false"
+        elif isinstance(obj, (int, float)):
+            return str(obj)
+        elif isinstance(obj, str):
+            # Check if this is a multi-line string in a text/content field
+            if in_text_field and '\n' in obj:
+                # Format with newlines preserved, add blank line before and after
+                lines = obj.split('\n')
+                formatted_lines = []
+                for line in lines:
+                    # Escape the line content for display but keep it readable
+                    formatted_lines.append(f'{indent_str}  {line}')
+                return f'\n{TEXT_COLOR}{chr(10).join(formatted_lines)}\n{indent_str}{Style.RESET_ALL}'
+            else:
+                # Regular string - escape and quote it
+                escaped = json.dumps(obj)
+                # If it's in a text/content field and reasonably long, use the lighter color
+                if in_text_field and len(obj) > 20:
+                    return f'{TEXT_COLOR}{escaped}{Style.RESET_ALL}'
+                return escaped
+        elif isinstance(obj, list):
+            if not obj:
+                return "[]"
+            items = []
+            for item in obj:
+                formatted_item = self.format_json(item, indent + 1, in_text_field)
+                items.append(f"{indent_str}  {formatted_item}")
+            return "[\n" + ",\n".join(items) + f"\n{indent_str}]"
+        elif isinstance(obj, dict):
+            if not obj:
+                return "{}"
+            items = []
+            for key, value in obj.items():
+                # Check if this is a text/content field
+                is_text_field = key in ("text", "content")
+                formatted_value = self.format_json(value, indent + 1, is_text_field)
+                items.append(f'{indent_str}  "{key}": {formatted_value}')
+            return "{\n" + ",\n".join(items) + f"\n{indent_str}" + "}"
+        else:
+            return json.dumps(obj)
+
 
     def compute_hash(self, value: Any) -> str:
         """Compute a hash for any JSON-serializable value."""
@@ -219,7 +271,7 @@ class ProxyServer:
                     cached_body = self.cache_and_replace(json_body)
                     # Then filter tools if needed (after caching to avoid caching the filter message)
                     filtered_body = self.filter_tools(cached_body)
-                    print(json.dumps(filtered_body, indent=2))
+                    print(self.format_json(filtered_body))
                 except json.JSONDecodeError:
                     # Not JSON, print as-is
                     print(body_text)
@@ -259,7 +311,7 @@ class ProxyServer:
                         cached_body = self.cache_and_replace(json_body)
                         # Then filter tools if needed
                         filtered_body = self.filter_tools(cached_body)
-                        print(json.dumps(filtered_body, indent=2))
+                        print(self.format_json(filtered_body))
                     except json.JSONDecodeError:
                         # Not JSON, print as-is
                         print(body_text)
