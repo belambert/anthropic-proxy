@@ -18,7 +18,15 @@ TEXT_COLOR = "\033[96m"  # Bright cyan
 
 
 class ProxyServer:
-    def __init__(self, target_host: str = "api.anthropic.com", target_scheme: str = "https", show_headers: bool = False, show_event_logging: bool = False, show_tools: bool = False, cache_json: bool = True):
+    def __init__(
+        self,
+        target_host: str = "api.anthropic.com",
+        target_scheme: str = "https",
+        show_headers: bool = False,
+        show_event_logging: bool = False,
+        show_tools: bool = False,
+        cache_json: bool = True,
+    ):
         self.target_host = target_host
         self.target_scheme = target_scheme
         self.show_headers = show_headers
@@ -31,7 +39,9 @@ class ProxyServer:
     def print_separator(self, char: str = "=", length: int = 80):
         print(Fore.CYAN + char * length)
 
-    def format_json(self, obj: Any, indent: int = 0, in_text_field: bool = False) -> str:
+    def format_json(
+        self, obj: Any, indent: int = 0, in_text_field: bool = False
+    ) -> str:
         """Custom JSON formatter that handles multi-line strings specially."""
         indent_str = "  " * indent
 
@@ -43,20 +53,20 @@ class ProxyServer:
             return str(obj)
         elif isinstance(obj, str):
             # Check if this is a multi-line string in a text/content field
-            if in_text_field and '\n' in obj:
+            if in_text_field and "\n" in obj:
                 # Format with newlines preserved, add blank line before and after
-                lines = obj.split('\n')
+                lines = obj.split("\n")
                 formatted_lines = []
                 for line in lines:
                     # Escape the line content for display but keep it readable
-                    formatted_lines.append(f'{indent_str}  {line}')
-                return f'\n{TEXT_COLOR}{chr(10).join(formatted_lines)}\n{indent_str}{Style.RESET_ALL}'
+                    formatted_lines.append(f"{indent_str}  {line}")
+                return f"\n{TEXT_COLOR}{chr(10).join(formatted_lines)}\n{indent_str}{Style.RESET_ALL}"
             else:
                 # Regular string - escape and quote it
                 escaped = json.dumps(obj)
                 # If it's in a text/content field and reasonably long, use the lighter color
                 if in_text_field and len(obj) > 20:
-                    return f'{TEXT_COLOR}{escaped}{Style.RESET_ALL}'
+                    return f"{TEXT_COLOR}{escaped}{Style.RESET_ALL}"
                 return escaped
         elif isinstance(obj, list):
             if not obj:
@@ -78,7 +88,6 @@ class ProxyServer:
             return "{\n" + ",\n".join(items) + f"\n{indent_str}" + "}"
         else:
             return json.dumps(obj)
-
 
     def compute_hash(self, value: Any) -> str:
         """Compute a hash for any JSON-serializable value."""
@@ -145,7 +154,9 @@ class ProxyServer:
                 if path == "" and key in ["model", "max_tokens", "stream"]:
                     result[key] = val
                 else:
-                    result[key] = self.cache_and_replace(val, f"{path}.{key}" if path else key)
+                    result[key] = self.cache_and_replace(
+                        val, f"{path}.{key}" if path else key
+                    )
             return result
         elif isinstance(value, list):
             # For arrays, check each item
@@ -167,35 +178,37 @@ class ProxyServer:
 
     def parse_streaming_response(self, body_text: str) -> str:
         """Parse and condense a streaming response with multiple events."""
-        lines = body_text.strip().split('\n')
+        lines = body_text.strip().split("\n")
         events = []
         current_event = None
         text_deltas = []
 
         for line in lines:
-            if line.startswith('event: '):
+            if line.startswith("event: "):
                 if current_event:
                     events.append(current_event)
-                current_event = {'event': line[7:].strip(), 'data': None}
-            elif line.startswith('data: '):
+                current_event = {"event": line[7:].strip(), "data": None}
+            elif line.startswith("data: "):
                 if current_event:
                     try:
-                        current_event['data'] = json.loads(line[6:].strip())
+                        current_event["data"] = json.loads(line[6:].strip())
                     except json.JSONDecodeError:
-                        current_event['data'] = line[6:].strip()
+                        current_event["data"] = line[6:].strip()
 
         if current_event:
             events.append(current_event)
 
         # Extract text deltas
         for event in events:
-            if (event['event'] == 'content_block_delta' and
-                event['data'] and
-                isinstance(event['data'], dict) and
-                event['data'].get('type') == 'content_block_delta'):
-                delta = event['data'].get('delta', {})
-                if delta.get('type') == 'text_delta':
-                    text_deltas.append(delta.get('text', ''))
+            if (
+                event["event"] == "content_block_delta"
+                and event["data"]
+                and isinstance(event["data"], dict)
+                and event["data"].get("type") == "content_block_delta"
+            ):
+                delta = event["data"].get("delta", {})
+                if delta.get("type") == "text_delta":
+                    text_deltas.append(delta.get("text", ""))
 
         # Build condensed output
         output = []
@@ -203,50 +216,62 @@ class ProxyServer:
 
         # Show message_start
         for event in events:
-            if event['event'] == 'message_start' and event['data']:
-                message_data = event['data'].get('message', {})
-                output.append(f"  - message_start: model={message_data.get('model')}, id={message_data.get('id')}")
-                usage = message_data.get('usage', {})
+            if event["event"] == "message_start" and event["data"]:
+                message_data = event["data"].get("message", {})
+                output.append(
+                    f"  - message_start: model={message_data.get('model')}, id={message_data.get('id')}"
+                )
+                usage = message_data.get("usage", {})
                 if usage:
-                    output.append(f"    usage: input_tokens={usage.get('input_tokens')}, output_tokens={usage.get('output_tokens')}")
+                    output.append(
+                        f"    usage: input_tokens={usage.get('input_tokens')}, output_tokens={usage.get('output_tokens')}"
+                    )
                 break
 
         # Show content_block_start
         for event in events:
-            if event['event'] == 'content_block_start':
-                output.append(f"  - content_block_start: index={event['data'].get('index', 0)}")
+            if event["event"] == "content_block_start":
+                output.append(
+                    f"  - content_block_start: index={event['data'].get('index', 0)}"
+                )
                 break
 
         # Show merged text deltas
         if text_deltas:
-            merged_text = ''.join(text_deltas)
-            output.append(f"  - content_block_delta (merged): \"{merged_text}\"")
+            merged_text = "".join(text_deltas)
+            output.append(f'  - content_block_delta (merged): "{merged_text}"')
 
         # Show content_block_stop
         for event in events:
-            if event['event'] == 'content_block_stop':
+            if event["event"] == "content_block_stop":
                 output.append(f"  - content_block_stop")
                 break
 
         # Show message_delta
         for event in events:
-            if event['event'] == 'message_delta' and event['data']:
-                delta = event['data'].get('delta', {})
-                output.append(f"  - message_delta: stop_reason={delta.get('stop_reason')}")
-                usage = event['data'].get('usage', {})
+            if event["event"] == "message_delta" and event["data"]:
+                delta = event["data"].get("delta", {})
+                output.append(
+                    f"  - message_delta: stop_reason={delta.get('stop_reason')}"
+                )
+                usage = event["data"].get("usage", {})
                 if usage:
-                    output.append(f"    usage: output_tokens={usage.get('output_tokens')}")
+                    output.append(
+                        f"    usage: output_tokens={usage.get('output_tokens')}"
+                    )
                 break
 
         # Show message_stop
         for event in events:
-            if event['event'] == 'message_stop':
+            if event["event"] == "message_stop":
                 output.append(f"  - message_stop")
                 break
 
-        return '\n'.join(output)
+        return "\n".join(output)
 
-    def print_request(self, method: str, path: str, headers: dict, body: Optional[bytes]):
+    def print_request(
+        self, method: str, path: str, headers: dict, body: Optional[bytes]
+    ):
         self.request_count += 1
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
@@ -264,7 +289,7 @@ class ProxyServer:
             print(f"\n{Fore.CYAN}Body ({len(body)} bytes):")
             try:
                 # Try to parse and pretty-print JSON
-                body_text = body.decode('utf-8')
+                body_text = body.decode("utf-8")
                 try:
                     json_body = json.loads(body_text)
                     # Apply caching to replace repeated structures
@@ -298,10 +323,10 @@ class ProxyServer:
             print(f"\n{Fore.CYAN}Body ({len(body)} bytes):")
             try:
                 # Try to parse and pretty-print JSON
-                body_text = body.decode('utf-8')
+                body_text = body.decode("utf-8")
 
                 # Check if this is a streaming response
-                if body_text.strip().startswith('event: '):
+                if body_text.strip().startswith("event: "):
                     condensed = self.parse_streaming_response(body_text)
                     print(condensed)
                 else:
@@ -325,23 +350,25 @@ class ProxyServer:
 
         # Prepare headers (remove hop-by-hop headers)
         headers = dict(request.headers)
-        headers.pop('Host', None)
-        headers.pop('Connection', None)
-        headers.pop('Transfer-Encoding', None)
+        headers.pop("Host", None)
+        headers.pop("Connection", None)
+        headers.pop("Transfer-Encoding", None)
 
         # Set the correct Host header for the target
-        headers['Host'] = self.target_host
+        headers["Host"] = self.target_host
 
         # Construct the target URL
         target_url = f"{self.target_scheme}://{self.target_host}{request.path_qs}"
 
         # Check if this is an event logging request
-        is_event_logging = request.path.startswith('/api/event_logging')
+        is_event_logging = request.path.startswith("/api/event_logging")
         should_print = not is_event_logging or self.show_event_logging
 
         # Print the request
         if should_print:
-            self.print_request(request.method, request.path_qs, headers, body if body else None)
+            self.print_request(
+                request.method, request.path_qs, headers, body if body else None
+            )
 
         try:
             # Forward the request
@@ -358,12 +385,16 @@ class ProxyServer:
 
                     # Prepare response headers
                     response_headers = dict(response.headers)
-                    response_headers.pop('Transfer-Encoding', None)
-                    response_headers.pop('Connection', None)
+                    response_headers.pop("Transfer-Encoding", None)
+                    response_headers.pop("Connection", None)
 
                     # Print the response
                     if should_print:
-                        self.print_response(response.status, response_headers, response_body if response_body else None)
+                        self.print_response(
+                            response.status,
+                            response_headers,
+                            response_body if response_body else None,
+                        )
 
                     # Return the response
                     return web.Response(
@@ -377,8 +408,22 @@ class ProxyServer:
             return web.Response(text=error_msg, status=502)
 
 
-async def create_app(target_host: str, target_scheme: str, show_headers: bool, show_event_logging: bool, show_tools: bool, cache_json: bool) -> web.Application:
-    proxy = ProxyServer(target_host, target_scheme, show_headers, show_event_logging, show_tools, cache_json)
+async def create_app(
+    target_host: str,
+    target_scheme: str,
+    show_headers: bool,
+    show_event_logging: bool,
+    show_tools: bool,
+    cache_json: bool,
+) -> web.Application:
+    proxy = ProxyServer(
+        target_host,
+        target_scheme,
+        show_headers,
+        show_event_logging,
+        show_tools,
+        cache_json,
+    )
     app = web.Application()
     app.router.add_route("*", "/{path:.*}", proxy.handle_request)
     return app
@@ -444,7 +489,16 @@ def main():
     print(f"{Fore.CYAN}Cache JSON: {cache_json}")
     print(f"{Fore.YELLOW}Press Ctrl+C to stop\n")
 
-    app = asyncio.run(create_app(args.target_host, args.target_scheme, args.show_headers, args.show_event_logging, args.show_tools, cache_json))
+    app = asyncio.run(
+        create_app(
+            args.target_host,
+            args.target_scheme,
+            args.show_headers,
+            args.show_event_logging,
+            args.show_tools,
+            cache_json,
+        )
+    )
     web.run_app(app, host=args.host, port=args.port, print=None)
 
 
